@@ -15,6 +15,9 @@
   header{position:sticky;top:0;z-index:5;background:linear-gradient(90deg,#15803d,#22c55e);color:#fff;padding:18px 24px;border-bottom:1px solid var(--accent-dark)}
   header h1{margin:0;font-size:22px;color:#fff}
   header p{margin:4px 0 0;color:#dcfce7;font-size:13px}
+  /* 제목 옆 기준 시점 배지 (작은 글씨) */
+  .title-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .asof{font-size:12px;font-weight:500;color:#eafff1;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);padding:2px 8px;border-radius:999px}
   /* 카드 제목도 초록 계열 배경 */
   .card h3{margin:0 0 12px;padding:8px 12px;background:#dcfce7;color:var(--accent-dark);border-radius:8px;font-size:15px}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;padding:24px}
@@ -40,7 +43,10 @@
 </head>
 <body>
 <header>
-  <h1>📚 베스트셀러 도서 대시보드</h1>
+  <div class="title-row">
+    <h1>📚 베스트셀러 도서 대시보드</h1>
+    <span class="asof">2026년 10월 기준</span>
+  </div>
   <p>도서 50종의 가격·출판사 분포 분석</p>
 </header>
 
