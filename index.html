@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>베스트셀러 도서 대시보드</title>
+<!-- Chart.js CDN 불러오기 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  /* 초록 계열 테마 색상 */
+  :root{--accent:#15803d;--accent-dark:#166534;--muted:#94a3b8;--line:#e5e7eb;}
+  *{box-sizing:border-box}
+  body{font-family:system-ui,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;margin:0;background:#f6f7f9;color:#1f2328}
+  /* 제목 영역: 초록 계열 배경 */
+  header{position:sticky;top:0;z-index:5;background:linear-gradient(90deg,#15803d,#22c55e);color:#fff;padding:18px 24px;border-bottom:1px solid var(--accent-dark)}
+  header h1{margin:0;font-size:22px;color:#fff}
+  header p{margin:4px 0 0;color:#dcfce7;font-size:13px}
+  /* 카드 제목도 초록 계열 배경 */
+  .card h3{margin:0 0 12px;padding:8px 12px;background:#dcfce7;color:var(--accent-dark);border-radius:8px;font-size:15px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;padding:24px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
+  .kpi-num{font-size:28px;font-weight:700;color:var(--accent)}
+  .kpi-label{color:var(--muted);font-size:13px;margin-bottom:6px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;padding:0 24px 24px}
+  .chart-box{position:relative;height:320px}
+  .table-wrap{padding:0 24px 40px}
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  input[type=search],select{padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;background:#fff}
+  input[type=search]{min-width:280px}
+  table{width:100%;border-collapse:collapse;background:#fff;font-size:14px}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{background:#dcfce7;color:var(--accent-dark);cursor:pointer;user-select:none;white-space:nowrap;position:sticky;top:0}
+  th:hover{color:var(--accent)}
+  td.num,th.num{text-align:right}
+  tbody tr:hover{background:#f0fdf4}
+  /* 가격 열: 천 단위 쉼표 + 오른쪽 정렬 */
+  td.price{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .count{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📚 베스트셀러 도서 대시보드</h1>
+  <p>도서 50종의 가격·출판사 분포 분석</p>
+</header>
+
+<!-- 요약 카드 영역 -->
+<section class="kpis" id="kpis"></section>
+
+<!-- 차트 2개 영역 -->
+<section class="grid">
+  <div class="card"><h3>가격대별 도서 수</h3><div class="chart-box"><canvas id="priceChart"></canvas></div></div>
+  <div class="card"><h3>출판사별 도서 수 (상위 8)</h3><div class="chart-box"><canvas id="pubChart"></canvas></div></div>
+</section>
+
+<!-- 전체 도서 표 -->
+<section class="table-wrap">
+  <div class="card">
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="제목 · 저자 · 출판사 검색">
+      <!-- 출간연도 필터 드롭다운 -->
+      <select id="year"><option value="">전체 연도</option></select>
+      <span class="count" id="count"></span>
+      <span class="count">열 제목을 클릭하면 정렬됩니다</span>
+    </div>
+    <div style="overflow:auto;max-height:600px">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th class="num" data-key="rank">순위</th>
+            <th data-key="title">제목</th>
+            <th data-key="author">저자</th>
+            <th data-key="publisher">출판사</th>
+            <th class="num" data-key="year">출간연도</th>
+            <th class="num" data-key="price">가격(원)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+// ===== 데이터 (CSV를 자바스크립트 배열로 직접 삽입) =====
+const DATA = [{"rank": 1, "title": "세네카, 오늘을 빼앗기고 있는 당신에게", "author": "루키우스 안나이우스 세네카, 하와이 대저택", "publisher": "논픽션", "year": 2026, "price": 16200}, {"rank": 2, "title": "그랬다고 적었다", "author": "김애란", "publisher": "문학동네", "year": 2026, "price": 15300}, {"rank": 3, "title": "한국사 이상현상 연구원", "author": "최인서", "publisher": "다이브", "year": 2026, "price": 19800}, {"rank": 4, "title": "싯다르타", "author": "헤르만 헤세, 박병덕", "publisher": "민음사", "year": 2002, "price": 7200}, {"rank": 5, "title": "백야 (먼슬리 클래식)", "author": "표도르 도스토옙스키, 박은정", "publisher": "문학동네", "year": 2026, "price": 13050}, {"rank": 6, "title": "카구라바치 11 (더블특전판)", "author": "호카조노 타케루", "publisher": "대원씨아이(만화)", "year": 2026, "price": 5850}, {"rank": 7, "title": "수족관", "author": "유래혁", "publisher": "포스터샵", "year": 2023, "price": 15930}, {"rank": 8, "title": "트렌드 코리아 2027", "author": "김난도, 전미영, 최지혜, 권정윤, 한다혜, 이혜원, 이수진, 전다현, 서유현, 이준영, 이향은, 김나은, 문지수", "publisher": "미래의창", "year": 2026, "price": 19800}, {"rank": 9, "title": "찌니주의보", "author": "정지아", "publisher": "창비", "year": 2026, "price": 15120}, {"rank": 10, "title": "서리꽃 세트 - 전2권 (초판 한정 케이스 + 조정래 작가노트)", "author": "조정래", "publisher": "해냄", "year": 2026, "price": 36000}, {"rank": 11, "title": "오뒷세이아", "author": "호메로스, 김헌", "publisher": "을유문화사", "year": 2026, "price": 22500}, {"rank": 12, "title": "호프 끝장", "author": "금동현, 김해솔, 박동수, 배은열, 신포도, 유유민, 이광호, 정미파, 한상희, 조일남, 윤아랑", "publisher": "디깅룸", "year": 2026, "price": 15120}, {"rank": 13, "title": "빵충 사육 준수 사항", "author": "김혜영", "publisher": "안전가옥", "year": 2026, "price": 15120}, {"rank": 14, "title": "오뒷세이아 (알라딘 리커버 특별판)", "author": "호메로스, 천병희", "publisher": "도서출판 숲", "year": 2015, "price": 29700}, {"rank": 15, "title": "모순", "author": "양귀자", "publisher": "쓰다", "year": 2013, "price": 11700}, {"rank": 16, "title": "테오", "author": "앨런 레비, 노지양", "publisher": "오팬하우스", "year": 2026, "price": 18900}, {"rank": 17, "title": "칵테일을 마시는 철학자들", "author": "세라 베이크웰, 조영", "publisher": "다산초당", "year": 2026, "price": 23400}, {"rank": 18, "title": "2026 큰별쌤 최태성의 별★별한국사 한국사능력검정시험 심화(1, 2, 3급) 상", "author": "최태성", "publisher": "이투스북", "year": 2025, "price": 17100}, {"rank": 19, "title": "신경 끄기의 기술 (한교동 에디션)", "author": "마크 맨슨, 한재호", "publisher": "갤리온", "year": 2026, "price": 17100}, {"rank": 20, "title": "기쁨에도 슬픔에도 아랑곳없이", "author": "박준", "publisher": "난다", "year": 2026, "price": 19800}, {"rank": 21, "title": "브람스를 좋아하세요...", "author": "프랑수아즈 사강, 김남주", "publisher": "민음사", "year": 2008, "price": 9000}, {"rank": 22, "title": "데미안", "author": "헤르만 헤세, 전영애", "publisher": "민음사", "year": 2000, "price": 7200}, {"rank": 23, "title": "안녕, 피터팬", "author": "전경철", "publisher": "이야기장수", "year": 2026, "price": 19800}, {"rank": 24, "title": "절창 (20만 부 기념 화이트 에디션)", "author": "구병모", "publisher": "문학동네", "year": 2025, "price": 16200}, {"rank": 25, "title": "2026 큰별쌤 최태성의 별★별한국사 한국사능력검정시험 심화(1, 2, 3급) 하", "author": "최태성", "publisher": "이투스북", "year": 2025, "price": 16650}, {"rank": 26, "title": "에그박사 19", "author": "에그박사 (원작), 박송이, 홍종현, 이승현 (감수)", "publisher": "미래엔아이세움", "year": 2026, "price": 15120}, {"rank": 27, "title": "브레인 악셀", "author": "이진우", "publisher": "바른뇌연구소", "year": 2026, "price": 19800}, {"rank": 28, "title": "노무현 평전", "author": "윤태영, 사람사는세상 노무현재단 (기획)", "publisher": "위즈덤하우스", "year": 2026, "price": 44550}, {"rank": 29, "title": "찰리 멍거 바이블 완결판", "author": "김재현, 이건", "publisher": "에프엔미디어", "year": 2026, "price": 27000}, {"rank": 30, "title": "오디세이아 (국내 유일 명화 104점 수록 완역본)", "author": "호메로스, 페테르 파울 루벤스, 박문재", "publisher": "현대지성", "year": 2025, "price": 24300}, {"rank": 31, "title": "사죠 리히토의 아버지와 그의 부하 상.하 세트 - 전2권", "author": "나카무라 아스미코", "publisher": "조은세상(북두)", "year": 2026, "price": 34200}, {"rank": 32, "title": "데뷔 못 하면 죽는 병 걸림 5부 초판 한정 굿즈박스 세트 - 전4권", "author": "백덕수", "publisher": "위시북스(KW북스)", "year": 2026, "price": 129600}, {"rank": 33, "title": "마음의 어휘력", "author": "조아란, 권희, 이정윤", "publisher": "페이지2(page2)", "year": 2026, "price": 15120}, {"rank": 34, "title": "눈 내리는 삼일포", "author": "김연수", "publisher": "문학동네", "year": 2026, "price": 16200}, {"rank": 35, "title": "문해내공", "author": "신종호, 김윤정", "publisher": "상상스퀘어", "year": 2026, "price": 22500}, {"rank": 36, "title": "타몬 군 지금 어느 쪽?! 14", "author": "시와스 유키, 최윤정", "publisher": "학산문화사(만화)", "year": 2026, "price": 6300}, {"rank": 37, "title": "니체의 초월자", "author": "프리드리히 니체, 김철", "publisher": "히읏", "year": 2025, "price": 15210}, {"rank": 38, "title": "ETS 토익 정기시험 기출문제집 1000 Vol. 5 Reading (리딩)", "author": "ETS", "publisher": "(주)YBM(와이비엠)", "year": 2025, "price": 19800}, {"rank": 39, "title": "처음 읽는 그리스 로마 신화 15", "author": "최설희, 한현동, 정수영 (구성)", "publisher": "미래엔아이세움", "year": 2026, "price": 15120}, {"rank": 40, "title": "코스모스 (100만 부 기념판)", "author": "칼 세이건, 홍승수", "publisher": "사이언스북스", "year": 2026, "price": 19800}, {"rank": 41, "title": "ETS 토익 정기시험 기출문제집 1000 Vol. 5 Listening (리스닝)", "author": "ETS", "publisher": "(주)YBM(와이비엠)", "year": 2025, "price": 19800}, {"rank": 42, "title": "처음 읽는 삼국지 5", "author": "이문열, 한현동 (원작), 윤종문 (구성)", "publisher": "미래엔아이세움", "year": 2026, "price": 15120}, {"rank": 43, "title": "이상한 지도", "author": "우케쓰, 김은모", "publisher": "리드비", "year": 2026, "price": 16920}, {"rank": 44, "title": "녹색 절벽의 신자들", "author": "조예은", "publisher": "오리지널스", "year": 2026, "price": 17100}, {"rank": 45, "title": "일리아스 (알라딘 리커버 특별판)", "author": "호메로스, 천병희", "publisher": "도서출판 숲", "year": 2015, "price": 34200}, {"rank": 46, "title": "김진순의 인생 레시피 1", "author": "김진순", "publisher": "길벗", "year": 2026, "price": 21600}, {"rank": 47, "title": "어제 뭐 먹었어? 25", "author": "요시나가 후미", "publisher": "삼양출판사(만화)", "year": 2026, "price": 5400}, {"rank": 48, "title": "투명한 나선", "author": "히가시노 게이고, 김선영", "publisher": "북다", "year": 2026, "price": 19800}, {"rank": 49, "title": "아르고스", "author": "이승형", "publisher": "한겨레출판", "year": 2026, "price": 15120}, {"rank": 50, "title": "이방인", "author": "알베르 카뮈, 김화영", "publisher": "민음사", "year": 2019, "price": 9000}];
+
+// 숫자를 천 단위 콤마 형식으로 변환
+const fmt = n => n.toLocaleString('ko-KR');
+
+// ===== 1) 요약 카드 계산 =====
+const total = DATA.length;
+const avg = Math.round(DATA.reduce((s,d)=>s+d.price,0)/total);
+const max = Math.max(...DATA.map(d=>d.price));
+const pubCount = new Set(DATA.map(d=>d.publisher)).size;
+const kpis = [
+  ['전체 도서 수', fmt(total)+'권'],
+  ['평균 가격', fmt(avg)+'원'],
+  ['최고 가격', fmt(max)+'원'],
+  ['출판사 수', fmt(pubCount)+'곳']
+];
+document.getElementById('kpis').innerHTML = kpis.map(([l,v])=>
+  `<div class="card"><div class="kpi-label">${l}</div><div class="kpi-num">${v}</div></div>`).join('');
+
+// ===== 2) 가격대별 도서 수 (막대 차트) =====
+// 가격 구간 정의: 1만원 미만 ~ 3만원 이상
+const bins = [
+  ['1만원 미만', d=>d.price<10000],
+  ['1만~1.5만', d=>d.price>=10000&&d.price<15000],
+  ['1.5만~2만', d=>d.price>=15000&&d.price<20000],
+  ['2만~3만', d=>d.price>=20000&&d.price<30000],
+  ['3만원 이상', d=>d.price>=30000]
+];
+const binCounts = bins.map(([,f])=>DATA.filter(f).length);
+new Chart(document.getElementById('priceChart'), {
+  type:'bar',
+  data:{labels:bins.map(b=>b[0]),
+        datasets:[{label:'도서 수', data:binCounts, backgroundColor:'#15803d', borderRadius:6}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{y:{beginAtZero:true,ticks:{precision:0},title:{display:true,text:'권'}}}}
+});
+
+// ===== 3) 출판사별 도서 수 상위 8 (도넛 차트) =====
+const pubMap = {};
+DATA.forEach(d=>pubMap[d.publisher]=(pubMap[d.publisher]||0)+1);
+const top8 = Object.entries(pubMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+new Chart(document.getElementById('pubChart'), {
+  type:'doughnut',
+  data:{labels:top8.map(p=>p[0]),
+        datasets:[{data:top8.map(p=>p[1]),
+          backgroundColor:['#15803d','#22c55e','#166534','#4ade80','#0d9488','#2dd4bf','#65a30d','#a3e635']}]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:12}}}}}
+});
+
+// ===== 4) 표: 검색 + 정렬 =====
+let sortKey='rank', sortAsc=true;
+const tbody = document.querySelector('#tbl tbody');
+
+// 출간연도 드롭다운 옵션 채우기 (최신 연도부터)
+const years = [...new Set(DATA.map(d=>d.year))].sort((a,b)=>b-a);
+const yearSel = document.getElementById('year');
+years.forEach(y=>{
+  const o=document.createElement('option');
+  o.value=y; o.textContent=y+'년 ('+DATA.filter(d=>d.year===y).length+'권)';
+  yearSel.appendChild(o);
+});
+
+function render(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const y = yearSel.value; // 선택된 출간연도 ('' 이면 전체)
+  // 제목·저자·출판사 검색 + 출간연도 필터
+  let rows = DATA.filter(d=>
+    (!q ||
+      d.title.toLowerCase().includes(q) ||
+      d.author.toLowerCase().includes(q) ||
+      d.publisher.toLowerCase().includes(q))
+    && (!y || d.year === Number(y)));
+  // 정렬 (문자열은 한글 기준 정렬)
+  rows = rows.slice().sort((a,b)=>{
+    const x=a[sortKey], y=b[sortKey];
+    const r = (typeof x === 'number') ? x-y : String(x).localeCompare(String(y),'ko');
+    return sortAsc ? r : -r;
+  });
+  tbody.innerHTML = rows.map(d=>`<tr>
+    <td class="num">${d.rank}</td><td>${d.title}</td><td>${d.author}</td>
+    <td>${d.publisher}</td><td class="num">${d.year}</td><td class="price">${fmt(d.price)}원</td></tr>`).join('');
+  document.getElementById('count').textContent = `${rows.length}권 표시 중`;
+}
+
+// 열 제목 클릭 시 정렬 기준 변경 (같은 열 재클릭 시 오름/내림 전환)
+document.querySelectorAll('#tbl th').forEach(th=>{
+  th.addEventListener('click',()=>{
+    const key = th.dataset.key;
+    if(sortKey===key) sortAsc=!sortAsc; else {sortKey=key; sortAsc=true;}
+    document.querySelectorAll('#tbl th').forEach(h=>h.textContent=h.textContent.replace(/ [▲▼]$/,''));
+    th.textContent += sortAsc ? ' ▲' : ' ▼';
+    render();
+  });
+});
+document.getElementById('q').addEventListener('input', render);
+yearSel.addEventListener('change', render); // 연도 선택 변경 시 표 갱신
+render(); // 최초 렌더링
+</script>
+</body>
+</html>
